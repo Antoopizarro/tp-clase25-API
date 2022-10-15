@@ -6,21 +6,65 @@ const moment = require('moment');
 
 
 //Aqui tienen otra forma de llamar a cada uno de los modelos
-const Movies = db.Movie;
-const Genres = db.Genre;
-const Actors = db.Actor;
+
 
 
 const moviesController = {
-    'list': (req, res) => {
-        db.Movie.findAll({
-            include: ['genre']
-        })
-            .then(movies => {
-                res.render('moviesList.ejs', {movies})
+    list : async (req, res) => {
+
+        const {limit, order, search} = req.query;
+        const fields = ['title', 'rating', 'release_date','length', 'awards']
+
+        try {
+
+            if(order && !fields.includes(order)){
+                throw createError(400,`Solo se ordenan los campos por ${fields.join(', ')}`);
+            }
+
+            let total = await db.Movie.count();
+            let movies = await db.Movie.findAll({
+                attributes : {
+                    exclude : ['created_at', 'updated_ad']
+                },
+                include : [
+                    {
+                        association : 'genre',
+                        attributes : {
+                            exclude : ['created_at', 'updated_at']
+                        }
+                    },
+                    {
+                        association : 'actors',
+                        attributes : {
+                            exclude : ['created_at', 'updated_at']
+                        }
+                    }
+                ],
+                limit : limit ? +limit : 5,
+                offset : limit ? +limit : 5,
+                order : [order ? order : 'id']
+            });
+
+            return res.status(200).json({
+                ok :  true,
+                meta : {
+                    status : 200
+                },
+                data : {
+                    items : movies.length,
+                    total,
+                    movies
+                }
             })
+        } catch (error) {
+            console.log(error)
+            return res.status(error.status || 500).json({
+                ok : false,
+                msg : error.message
+            })
+        }
     },
-    'detail': (req, res) => {
+    getById : (req, res) => {
         db.Movie.findByPk(req.params.id,
             {
                 include : ['genre']
@@ -29,7 +73,7 @@ const moviesController = {
                 res.render('moviesDetail.ejs', {movie});
             });
     },
-    'new': (req, res) => {
+    newest: (req, res) => {
         db.Movie.findAll({
             order : [
                 ['release_date', 'DESC']
@@ -40,7 +84,7 @@ const moviesController = {
                 res.render('newestMovies', {movies});
             });
     },
-    'recomended': (req, res) => {
+    recomended: (req, res) => {
         db.Movie.findAll({
             include: ['genre'],
             where: {
@@ -55,16 +99,7 @@ const moviesController = {
             });
     },
     //Aqui dispongo las rutas para trabajar con el CRUD
-    add: function (req, res) {
-        let promGenres = Genres.findAll();
-        let promActors = Actors.findAll();
-        
-        Promise
-        .all([promGenres, promActors])
-        .then(([allGenres, allActors]) => {
-            return res.render(path.resolve(__dirname, '..', 'views',  'moviesAdd'), {allGenres,allActors})})
-        .catch(error => res.send(error))
-    },
+
     create: function (req,res) {
         Movies
         .create(
@@ -79,18 +114,6 @@ const moviesController = {
         )
         .then(()=> {
             return res.redirect('/movies')})            
-        .catch(error => res.send(error))
-    },
-    edit: function(req,res) {
-        let movieId = req.params.id;
-        let promMovies = Movies.findByPk(movieId,{include: ['genre','actors']});
-        let promGenres = Genres.findAll();
-        let promActors = Actors.findAll();
-        Promise
-        .all([promMovies, promGenres, promActors])
-        .then(([Movie, allGenres, allActors]) => {
-            Movie.release_date = moment(Movie.release_date).format('L');
-            return res.render(path.resolve(__dirname, '..', 'views',  'moviesEdit'), {Movie,allGenres,allActors})})
         .catch(error => res.send(error))
     },
     update: function (req,res) {
@@ -110,14 +133,6 @@ const moviesController = {
             })
         .then(()=> {
             return res.redirect('/movies')})            
-        .catch(error => res.send(error))
-    },
-    delete: function (req,res) {
-        let movieId = req.params.id;
-        Movies
-        .findByPk(movieId)
-        .then(Movie => {
-            return res.render(path.resolve(__dirname, '..', 'views',  'moviesDelete'), {Movie})})
         .catch(error => res.send(error))
     },
     destroy: function (req,res) {
