@@ -10,7 +10,7 @@ router
     .get('/recommended', recomended)
     .get('/:id', getById)
 //Rutas exigidas par la creación del CRUD
-    .post('/create', create)
+    .post('/', create)
     .put('/:id', update)
     .delete('/:id', destroy)
 

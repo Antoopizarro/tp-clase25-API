@@ -1,5 +1,8 @@
 const createError = require('./createError');
+const {getUrlBase, getUrl} = require('./getUrls');
 
 module.exports = {
-    createError
+    createError,
+    getUrlBase,
+    getUrl
 }
